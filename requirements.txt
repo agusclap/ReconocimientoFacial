@@ -1,0 +1,12 @@
+ultralytics
+insightface
+opencv-python
+onnxruntime
+torch
+torchvision
+torchaudio
+numpy
+pydantic
+fastapi
+uvicorn
+python-dotenv
