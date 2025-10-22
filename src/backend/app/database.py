@@ -10,11 +10,11 @@ from psycopg2.extras import RealDictCursor, register_default_jsonb
 from psycopg2.extensions import connection
 
 
-DB_NAME = os.getenv("DB_NAME", "gimnasio")
-DB_USER = os.getenv("DB_USER", "postgres")
-DB_PASSWORD = os.getenv("DB_PASSWORD", "postgres")
+DB_NAME = os.getenv("DB_NAME", "proyectogpi1")
+DB_USER = os.getenv("DB_USER", "admin")
+DB_PASSWORD = os.getenv("DB_PASSWORD", "nariga")
 DB_HOST = os.getenv("DB_HOST", "localhost")
-DB_PORT = os.getenv("DB_PORT", "5432")
+DB_PORT = os.getenv("DB_PORT", "15432")
 
 
 class Database:
