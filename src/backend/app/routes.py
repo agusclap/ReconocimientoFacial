@@ -1,17 +1,14 @@
 """Route registration for the backend FastAPI application."""
 from __future__ import annotations
 
-from datetime import date
 from pathlib import Path
-from typing import List, Optional
+from typing import Optional
 
-from fastapi import APIRouter, FastAPI, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, FastAPI, HTTPException
 from fastapi.responses import FileResponse
 
 from .database import db
-from .face import FaceNotFoundError, embedding_from_image
-from ...liveness import LivenessError, evaluate_frame_bytes
-from .schemas import AccesoIn
+from .schemas import AccesoIn, SocioIn
 
 
 def register_routes(app: FastAPI, frontend_root: Path) -> None:
@@ -54,35 +51,6 @@ def register_routes(app: FastAPI, frontend_root: Path) -> None:
         )
         return db().query(sql)
 
-    @router.post("/liveness/verify")
-    async def verify_liveness(frame: UploadFile = File(...)):
-        if frame.content_type and not frame.content_type.startswith("image/"):
-            raise HTTPException(status_code=415, detail="El archivo debe ser una imagen.")
-
-        data = await frame.read()
-        if not data:
-            raise HTTPException(status_code=400, detail="No se recibió ninguna imagen para validar.")
-
-        try:
-            result = evaluate_frame_bytes(data)
-            ok = True
-        except ValueError as exc:
-            raise HTTPException(status_code=400, detail=str(exc)) from exc
-        except LivenessError as exc:
-            result = exc.result
-            ok = False
-
-        return {
-            "ok": ok,
-            "personas": result.person_count,
-            "dispositivos": result.cellphone_count,
-            "motivos": result.reasons,
-            "detecciones": [
-                {"label": d.label, "confianza": d.confidence, "caja": d.box}
-                for d in result.detections
-            ],
-        }
-
     @router.post("/logs/acceso")
     def post_acceso(payload: AccesoIn):
         socio = db().query(
@@ -112,72 +80,27 @@ def register_routes(app: FastAPI, frontend_root: Path) -> None:
             "SELECT dni_cliente as dni, nombre, apellido FROM socios ORDER BY apellido, nombre LIMIT 50"
         )
 
-    def _parse_embedding(raw: Optional[str]) -> Optional[List[float]]:
-        if not raw:
-            return None
-        values: List[float] = []
-        for chunk in raw.split(","):
-            text = chunk.strip()
-            if not text:
-                continue
-            try:
-                values.append(float(text))
-            except ValueError as exc:  # pragma: no cover - defensive parsing
-                raise HTTPException(status_code=400, detail="Embedding inválido") from exc
-        if values and len(values) != 512:
-            raise HTTPException(status_code=400, detail="El embedding debe tener 512 valores")
-        return values or None
-
     @router.post("/socios")
-    async def create_socio(
-        dni: int = Form(...),
-        nombre: str = Form(...),
-        apellido: str = Form(...),
-        fecha_nacimiento: date = Form(...),
-        telefono: Optional[str] = Form(None),
-        mail: Optional[str] = Form(None),
-        id_plan: int = Form(...),
-        dias_duracion: int = Form(30),
-        embedding: Optional[str] = Form(None),
-        foto: Optional[UploadFile] = File(None),
-    ):
-        vector = _parse_embedding(embedding)
-
-        telefono = telefono or None
-        mail = mail or None
-
-        if vector is None and foto is None:
-            raise HTTPException(
-                status_code=400,
-                detail="Debés adjuntar una foto o un embedding para registrar el rostro.",
-            )
-
-        if vector is None and foto is not None:
-            image_bytes = await foto.read()
-            try:
-                vector = embedding_from_image(image_bytes)
-            except FaceNotFoundError as exc:
-                raise HTTPException(status_code=400, detail=str(exc)) from exc
-
+    def create_socio(s: SocioIn):
         db().execute(
             "INSERT INTO socios (dni_cliente, nombre, apellido, fecha_nacimiento, telefono, mail) "
             "VALUES (%s,%s,%s,%s,%s,%s)",
-            [dni, nombre, apellido, fecha_nacimiento, telefono, mail],
+            [s.dni, s.nombre, s.apellido, s.fecha_nacimiento, s.telefono, s.mail],
         )
 
         db().execute(
             "INSERT INTO membresias (dni_cliente, id_plan, fecha_inicio, fecha_fin, estado) "
             "VALUES (%s,%s,CURRENT_DATE, CURRENT_DATE + (%s || ' days')::interval, 'ACTIVA')",
-            [dni, id_plan, dias_duracion],
+            [s.dni, s.id_plan, s.dias_duracion],
         )
 
-        if vector:
+        if s.embedding:
             db().execute(
                 "INSERT INTO rostros (dni_cliente, embedding) VALUES (%s, %s)",
-                [dni, vector],
+                [s.dni, s.embedding],
             )
 
-        return {"ok": True, "rostro_registrado": bool(vector)}
+        return {"ok": True}
 
     @router.delete("/socios/{dni}")
     def delete_socio(dni: int):
