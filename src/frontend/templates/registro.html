@@ -5,15 +5,15 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Registrar Nuevo Socio</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <script defer src="js/api.js"></script>
+  <script defer src="/static/js/api.js"></script>
 </head>
 <body class="bg-slate-900 text-slate-100 min-h-screen">
   <header class="p-4 border-b border-slate-800 flex items-center justify-between">
     <h1 class="text-xl font-semibold">🦾 Panel de Recepción</h1>
     <nav class="space-x-3 text-sm">
-      <a href="index.html" class="hover:underline">Logs</a>
-      <a href="registro.html" class="underline">Registrar Usuario</a>
-      <a href="eliminar.html" class="hover:underline">Eliminar Usuario</a>
+      <a href="/" class="hover:underline">Logs</a>
+      <a href="/registro" class="underline">Registrar Usuario</a>
+      <a href="/eliminar" class="hover:underline">Eliminar Usuario</a>
     </nav>
   </header>
 
@@ -55,7 +55,7 @@
           <p class="text-xs text-slate-400 mt-1">Si dejás esto vacío, el socio quedará sin rostro hasta que el servicio de reconocimiento lo cargue.</p>
         </div>
         <div class="md:col-span-2 flex justify-end gap-2 mt-2">
-          <a href="index.html" class="px-4 py-2 rounded-lg bg-slate-700">Cancelar</a>
+          <a href="/" class="px-4 py-2 rounded-lg bg-slate-700">Cancelar</a>
           <button class="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500">Guardar</button>
         </div>
       </form>
@@ -100,7 +100,7 @@
       try{
         await api.altaSocio(payload);
         alert('Socio creado con éxito');
-        window.location.href = 'index.html';
+        window.location.href = '/';
       }catch(err){
         alert('Error al crear socio');
         console.error(err);
