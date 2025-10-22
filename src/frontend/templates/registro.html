@@ -5,15 +5,15 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Registrar Nuevo Socio</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <script defer src="js/api.js"></script>
+  <script defer src="/static/js/api.js"></script>
 </head>
 <body class="bg-slate-900 text-slate-100 min-h-screen">
   <header class="p-4 border-b border-slate-800 flex items-center justify-between">
     <h1 class="text-xl font-semibold">🦾 Panel de Recepción</h1>
     <nav class="space-x-3 text-sm">
-      <a href="index.html" class="hover:underline">Logs</a>
-      <a href="registro.html" class="underline">Registrar Usuario</a>
-      <a href="eliminar.html" class="hover:underline">Eliminar Usuario</a>
+      <a href="/" class="hover:underline">Logs</a>
+      <a href="/registro" class="underline">Registrar Usuario</a>
+      <a href="/eliminar" class="hover:underline">Eliminar Usuario</a>
     </nav>
   </header>
 
@@ -50,12 +50,12 @@
           <select id="plan" class="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg"></select>
         </div>
         <div class="md:col-span-2">
-          <label class="block text-sm mb-1">(Opcional) Embedding Facial 512 valores separados por coma</label>
-          <textarea id="embedding" class="w-full h-24 px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg" placeholder="v1, v2, v3, ..."></textarea>
-          <p class="text-xs text-slate-400 mt-1">Si dejás esto vacío, el socio quedará sin rostro hasta que el servicio de reconocimiento lo cargue.</p>
+          <label class="block text-sm mb-1">Foto del socio</label>
+          <input id="foto" type="file" accept="image/*" class="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg" required />
+          <p class="text-xs text-slate-400 mt-1">La imagen se utiliza para generar automáticamente el embedding facial y guardarlo en la base de datos.</p>
         </div>
         <div class="md:col-span-2 flex justify-end gap-2 mt-2">
-          <a href="index.html" class="px-4 py-2 rounded-lg bg-slate-700">Cancelar</a>
+          <a href="/" class="px-4 py-2 rounded-lg bg-slate-700">Cancelar</a>
           <button class="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500">Guardar</button>
         </div>
       </form>
@@ -77,30 +77,23 @@
 
     document.getElementById('f').addEventListener('submit', async (e)=>{
       e.preventDefault();
-      const embText = document.getElementById('embedding').value.trim();
-      let embedding = null;
-      if(embText){
-        embedding = embText.split(',').map(x=>parseFloat(x.trim())).filter(x=>!Number.isNaN(x));
-        if(embedding.length !== 512){
-          alert('El embedding debe tener 512 valores.');
-          return;
-        }
+      const payload = new FormData();
+      payload.append('dni', document.getElementById('dni').value);
+      payload.append('nombre', document.getElementById('nombre').value);
+      payload.append('apellido', document.getElementById('apellido').value);
+      payload.append('fecha_nacimiento', document.getElementById('nacimiento').value);
+      payload.append('telefono', document.getElementById('telefono').value || '');
+      payload.append('mail', document.getElementById('mail').value || '');
+      payload.append('id_plan', document.getElementById('plan').value);
+      payload.append('dias_duracion', '30');
+      const fotoInput = document.getElementById('foto');
+      if(fotoInput.files && fotoInput.files[0]){
+        payload.append('foto', fotoInput.files[0]);
       }
-      const payload = {
-        dni: parseInt(document.getElementById('dni').value,10),
-        nombre: document.getElementById('nombre').value,
-        apellido: document.getElementById('apellido').value,
-        fecha_nacimiento: document.getElementById('nacimiento').value,
-        telefono: document.getElementById('telefono').value || null,
-        mail: document.getElementById('mail').value || null,
-        id_plan: parseInt(document.getElementById('plan').value,10),
-        dias_duracion: 30,
-        embedding: embedding
-      };
       try{
         await api.altaSocio(payload);
         alert('Socio creado con éxito');
-        window.location.href = 'index.html';
+        window.location.href = '/';
       }catch(err){
         alert('Error al crear socio');
         console.error(err);
