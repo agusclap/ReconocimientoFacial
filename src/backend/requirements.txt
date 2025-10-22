@@ -5,3 +5,8 @@ psycopg2-binary
 pgvector
 pydantic
 pydantic-settings
+numpy
+opencv-python-headless
+insightface
+ultralytics
+torch
