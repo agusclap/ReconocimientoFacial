@@ -134,6 +134,28 @@ def evaluate_frame_bytes(data: bytes) -> LivenessResult:
     if frame is None:
         raise ValueError("No se pudo decodificar la imagen enviada.")
 
+    return evaluate_frame(frame)
+
+
+def evaluate_frame(frame: np.ndarray) -> LivenessResult:
+    """Run liveness checks on an already decoded frame.
+
+    Args:
+        frame: Image in BGR format as provided by OpenCV.
+
+    Returns:
+        LivenessResult summarising the scene.
+
+    Raises:
+        ValueError: If the frame is not a valid colour image.
+        LivenessError: If the liveness verification fails.
+    """
+
+    if frame is None:
+        raise ValueError("El frame proporcionado es nulo.")
+    if frame.ndim != 3 or frame.shape[2] != 3:
+        raise ValueError("El frame debe ser una imagen en formato BGR.")
+
     result = _run_inference(frame)
     if not result.ok:
         raise LivenessError(result)
@@ -144,5 +166,6 @@ __all__ = [
     "Detection",
     "LivenessError",
     "LivenessResult",
+    "evaluate_frame",
     "evaluate_frame_bytes",
 ]
