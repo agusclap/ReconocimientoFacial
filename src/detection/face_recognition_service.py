@@ -17,11 +17,11 @@ from pgvector.psycopg2 import register_vector
 from insightface.app import FaceAnalysis
 
 API_BASE = os.getenv('API_BASE', 'http://127.0.0.1:8000')
-DB_NAME = os.getenv('DB_NAME', 'gimnasio')
-DB_USER = os.getenv('DB_USER', 'postgres')
-DB_PASSWORD = os.getenv('DB_PASSWORD', 'postgres')
+DB_NAME = os.getenv('DB_NAME', 'proyectogpi1')
+DB_USER = os.getenv('DB_USER', 'admin')
+DB_PASSWORD = os.getenv('DB_PASSWORD', 'nariga')
 DB_HOST = os.getenv('DB_HOST', 'localhost')
-DB_PORT = os.getenv('DB_PORT', '5432')
+DB_PORT = os.getenv('DB_PORT', '15432')
 SIMILARITY_THRESHOLD = float(os.getenv('SIMILARITY_THRESHOLD','0.45'))
 
 # Modelo InsightFace
@@ -29,8 +29,8 @@ app = FaceAnalysis(name='buffalo_l', providers=['CPUExecutionProvider'])
 app.prepare(ctx_id=0, det_size=(640,640))
 
 conn = psycopg2.connect(dbname=DB_NAME, user=DB_USER, password=DB_PASSWORD, host=DB_HOST, port=DB_PORT)
+conn.autocommit = True  # <- mover aquí para evitar set_session dentro de una transacción
 register_vector(conn)
-conn.autocommit=True
 
 cap = cv2.VideoCapture(0)
 print('Reconocimiento activo. q para salir')

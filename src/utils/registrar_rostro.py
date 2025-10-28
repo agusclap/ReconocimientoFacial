@@ -3,6 +3,7 @@ import numpy as np
 import insightface
 from insightface.app import FaceAnalysis
 import psycopg2
+import os
 
 # --- CONFIGURACIÓN ---
 # Conexión a la base de datos (¡ajusta estos valores!)
@@ -21,6 +22,21 @@ app.prepare(ctx_id=0, det_size=(640, 640))
 # Iniciar la cámara
 cap = cv2.VideoCapture(0)
 
+# detectar soporte GUI de OpenCV
+def _has_gui():
+    try:
+        cv2.namedWindow("test", cv2.WINDOW_NORMAL)
+        cv2.imshow("test", np.zeros((2,2,3), dtype=np.uint8))
+        cv2.waitKey(1)
+        cv2.destroyWindow("test")
+        return True
+    except Exception:
+        return False
+
+USE_GUI = _has_gui()
+if not USE_GUI:
+    print("Aviso: OpenCV sin soporte GUI (imshow no disponible). El script usará modo headless (guardará preview y pedirá confirmación por terminal).")
+
 # Pedir el nombre del usuario
 nombre_usuario = input("Ingresa tu nombre para registrarte: ")
 
@@ -32,13 +48,20 @@ while True:
     if not ret:
         break
 
-    # Mostrar instrucciones en la pantalla
-    cv2.putText(frame, "Presiona 's' para guardar, 'q' para salir", (10, 30),
-                cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
-
-    cv2.imshow('Registro Facial - Presiona "s" para guardar', frame)
-
-    key = cv2.waitKey(1) & 0xFF
+    if USE_GUI:
+        # Mostrar instrucciones en la pantalla
+        cv2.putText(frame, "Presiona 's' para guardar, 'q' para salir", (10, 30),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
+        cv2.imshow('Registro Facial - Presiona "s" para guardar', frame)
+        key = cv2.waitKey(1) & 0xFF
+    else:
+        # headless: guardar preview y pedir acción por terminal
+        preview_path = f"/tmp/registro_preview_{nombre_usuario}.jpg"
+        cv2.imwrite(preview_path, frame)
+        print(f"Preview guardado en: {preview_path}")
+        print("Escribe 's' + Enter para guardar el rostro, 'q' + Enter para salir, o Enter para refrescar preview.")
+        choice = input().strip().lower()
+        key = ord(choice[0]) if choice else 0
 
     if key == ord('s'):
         # Detectar rostros en el frame actual

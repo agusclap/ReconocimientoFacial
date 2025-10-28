@@ -63,48 +63,74 @@
   </main>
 
   <script>
-    const api = API();
-    async function loadPlanes(){
-      const planes = await api.planes();
-      const sel = document.getElementById('plan');
-      sel.innerHTML = '';
-      planes.forEach(p=>{
-        const opt = document.createElement('option');
-        opt.value = p.id_plan; opt.textContent = p.nombre; sel.appendChild(opt);
-      })
-    }
-    loadPlanes();
-
-    document.getElementById('f').addEventListener('submit', async (e)=>{
-      e.preventDefault();
-      const embText = document.getElementById('embedding').value.trim();
-      let embedding = null;
-      if(embText){
-        embedding = embText.split(',').map(x=>parseFloat(x.trim())).filter(x=>!Number.isNaN(x));
-        if(embedding.length !== 512){
-          alert('El embedding debe tener 512 valores.');
-          return;
+    window.addEventListener('DOMContentLoaded', async () => {
+      // Asegurarse de que API esté disponible. Si no, intentar cargar dinámicamente.
+      if (typeof API !== 'function') {
+        try {
+          await new Promise((res, rej) => {
+            const s = document.createElement('script');
+            s.src = '/static/js/api.js';
+            s.async = false;
+            s.onload = res;
+            s.onerror = rej;
+            document.head.appendChild(s);
+          });
+        } catch (err) {
+          console.error('No se pudo cargar /static/js/api.js:', err);
         }
       }
-      const payload = {
-        dni: parseInt(document.getElementById('dni').value,10),
-        nombre: document.getElementById('nombre').value,
-        apellido: document.getElementById('apellido').value,
-        fecha_nacimiento: document.getElementById('nacimiento').value,
-        telefono: document.getElementById('telefono').value || null,
-        mail: document.getElementById('mail').value || null,
-        id_plan: parseInt(document.getElementById('plan').value,10),
-        dias_duracion: 30,
-        embedding: embedding
-      };
-      try{
-        await api.altaSocio(payload);
-        alert('Socio creado con éxito');
-        window.location.href = '/';
-      }catch(err){
-        alert('Error al crear socio');
-        console.error(err);
+      if (typeof API !== 'function') {
+        console.error('API no está definida tras intentar cargar api.js. Comprueba la ruta y que el servidor sirve archivos estáticos.');
+        return;
       }
+
+      const api = API();
+
+      async function loadPlanes() {
+        const planes = await api.planes();
+        const sel = document.getElementById('plan');
+        sel.innerHTML = '';
+        planes.forEach(p => {
+          const opt = document.createElement('option');
+          opt.value = p.id_plan;
+          opt.textContent = p.nombre;
+          sel.appendChild(opt);
+        });
+      }
+      await loadPlanes();
+
+      document.getElementById('f').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const embText = (document.getElementById('embedding') || { value: '' }).value.trim();
+        let embedding = null;
+        if (embText) {
+          embedding = embText.split(',').map(x => parseFloat(x.trim())).filter(x => !Number.isNaN(x));
+          if (embedding.length !== 512) {
+            alert('El embedding debe tener 512 valores.');
+            return;
+          }
+        }
+        const payload = {
+          dni: parseInt(document.getElementById('dni').value, 10),
+          nombre: document.getElementById('nombre').value,
+          apellido: document.getElementById('apellido').value,
+          fecha_nacimiento: document.getElementById('nacimiento').value,
+          telefono: document.getElementById('telefono').value || null,
+          mail: document.getElementById('mail').value || null,
+          id_plan: parseInt(document.getElementById('plan').value, 10),
+          dias_duracion: 30,
+          embedding: embedding
+        };
+        try {
+          const api = API();
+          await api.altaSocio(payload);
+          alert('Socio creado con éxito');
+          window.location.href = '/';
+        } catch (err) {
+          alert('Error al crear socio');
+          console.error(err);
+        }
+      });
     });
   </script>
 </body>

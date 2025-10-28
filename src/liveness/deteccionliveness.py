@@ -154,7 +154,7 @@ def main(args):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--source", type=str, default="0")
-    parser.add_argument("--model", type=str, default="./yolo11m.pt")
+    parser.add_argument("--model", type=str, default="/home/edu/ReconocimientoFacial/src/liveness/yolo11m.pt")
     parser.add_argument("--imgsz", type=int, default=IMG_SIZE)
     parser.add_argument("--conf", type=float, default=CONFIDENCE_THRESHOLD)
     parser.add_argument("--containment", type=float, default=CONTAINMENT_THRESHOLD)

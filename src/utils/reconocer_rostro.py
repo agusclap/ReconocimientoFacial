@@ -64,7 +64,7 @@ while True:
                 nombre, similarity = result
                 if similarity > SIMILARITY_THRESHOLD:
                     texto_a_mostrar = f"{nombre} ({similarity:.2f})"
-                    color = (0, 255, 0) # Verde para reconocido
+                    color = (0, 0, 255) # Verde para reconocido
                 else:
                     texto_a_mostrar = f"Desconocido ({similarity:.2f})"
                     color = (0, 0, 255) # Rojo para desconocido
