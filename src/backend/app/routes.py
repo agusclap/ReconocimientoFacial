@@ -119,9 +119,7 @@ def register_routes(app: FastAPI, frontend_root: Path) -> None:
 
         try:
             video.file.seek(0)
-            embedding = embedding_from_video(
-                video.file, capture_frames=15, filename=video.filename
-            )
+            embedding = embedding_from_video(video.file, capture_frames=15)
         except FaceNotFoundError as exc:  # pragma: no cover - simple mapping to HTTP error
             raise HTTPException(status_code=400, detail=str(exc)) from exc
 
