@@ -54,6 +54,11 @@
           <textarea id="embedding" class="w-full h-24 px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg" placeholder="v1, v2, v3, ..."></textarea>
           <p class="text-xs text-slate-400 mt-1">Si dejás esto vacío, el socio quedará sin rostro hasta que el servicio de reconocimiento lo cargue.</p>
         </div>
+        <div class="md:col-span-2">
+          <label class="block text-sm mb-1">Video para generar embedding (15 capturas)</label>
+          <input id="video" type="file" accept="video/*" class="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg" />
+          <p class="text-xs text-slate-400 mt-1">El video se procesa para extraer 15 capturas, calcular el embedding y luego se eliminan las capturas para ahorrar espacio.</p>
+        </div>
         <div class="md:col-span-2 flex justify-end gap-2 mt-2">
           <a href="/" class="px-4 py-2 rounded-lg bg-slate-700">Cancelar</a>
           <button class="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500">Guardar</button>
@@ -110,8 +115,9 @@
             return;
           }
         }
+        const dniValue = parseInt(document.getElementById('dni').value, 10);
         const payload = {
-          dni: parseInt(document.getElementById('dni').value, 10),
+          dni: dniValue,
           nombre: document.getElementById('nombre').value,
           apellido: document.getElementById('apellido').value,
           fecha_nacimiento: document.getElementById('nacimiento').value,
@@ -121,10 +127,22 @@
           dias_duracion: 30,
           embedding: embedding
         };
+        const videoInput = document.getElementById('video');
+        const videoFile = videoInput && videoInput.files && videoInput.files.length ? videoInput.files[0] : null;
         try {
-          const api = API();
           await api.altaSocio(payload);
-          alert('Socio creado con éxito');
+          let message = 'Socio creado con éxito';
+          if (videoFile) {
+            try {
+              await api.rostroDesdeVideo(dniValue, videoFile);
+              message = 'Socio creado y embedding generado con éxito';
+            } catch (err) {
+              console.error(err);
+              alert('Socio creado, pero no se pudo generar el embedding desde el video. Podés intentarlo nuevamente desde esta página.');
+              return;
+            }
+          }
+          alert(message);
           window.location.href = '/';
         } catch (err) {
           alert('Error al crear socio');
