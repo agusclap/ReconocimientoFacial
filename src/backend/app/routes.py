@@ -4,11 +4,12 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Optional
 
-from fastapi import APIRouter, FastAPI, HTTPException
+from fastapi import APIRouter, FastAPI, File, HTTPException, UploadFile
 from fastapi.responses import FileResponse
 
 from .database import db
 from .schemas import AccesoIn, SocioIn
+from .face import FaceNotFoundError, embedding_from_video
 
 
 def register_routes(app: FastAPI, frontend_root: Path) -> None:
@@ -109,6 +110,26 @@ def register_routes(app: FastAPI, frontend_root: Path) -> None:
         db().execute("DELETE FROM membresias WHERE dni_cliente=%s", [dni])
         db().execute("DELETE FROM socios WHERE dni_cliente=%s", [dni])
         return {"ok": True}
+
+    @router.post("/socios/{dni}/rostro-video")
+    async def upload_socio_video(dni: int, video: UploadFile = File(...)):
+        socio = db().query("SELECT dni_cliente FROM socios WHERE dni_cliente=%s", [dni])
+        if not socio:
+            raise HTTPException(status_code=404, detail="Socio no encontrado")
+
+        try:
+            video.file.seek(0)
+            embedding = embedding_from_video(video.file, capture_frames=15)
+        except FaceNotFoundError as exc:  # pragma: no cover - simple mapping to HTTP error
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+        db().execute("DELETE FROM rostros WHERE dni_cliente=%s", [dni])
+        db().execute(
+            "INSERT INTO rostros (dni_cliente, embedding) VALUES (%s, %s)",
+            [dni, embedding],
+        )
+
+        return {"ok": True, "embedding": embedding, "capturas": 15}
 
     app.include_router(router)
 
