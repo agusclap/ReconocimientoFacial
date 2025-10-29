@@ -6,6 +6,8 @@ import shutil
 import tempfile
 import threading
 from pathlib import Path
+from typing import BinaryIO, List, Optional
+
 from typing import BinaryIO, List
 
 import cv2
@@ -82,6 +84,27 @@ def embedding_from_image(data: bytes) -> List[float]:
     return embedding.tolist()
 
 
+_ALLOWED_VIDEO_SUFFIXES = {".mp4", ".webm"}
+
+
+def embedding_from_video(
+    file_obj: BinaryIO,
+    capture_frames: int = 15,
+    filename: Optional[str] = None,
+) -> List[float]:
+    """Generate an InsightFace embedding from a video file.
+
+    The function extracts up to ``capture_frames`` frames from the provided
+    video, computes the facial embedding for each valid detection and
+    averages the results. Temporary snapshots generated during the process
+    are stored on disk and removed automatically once the embedding is
+    produced.
+
+    Args:
+        file_obj: File-like object pointing to the uploaded video.
+        capture_frames: Number of frames to sample from the video.
+
+=======
 def embedding_from_video(file_obj: BinaryIO, capture_frames: int = 15) -> List[float]:
     """Generate an InsightFace embedding from a video file.
 
@@ -106,7 +129,12 @@ def embedding_from_video(file_obj: BinaryIO, capture_frames: int = 15) -> List[f
     if capture_frames <= 0:
         raise ValueError("capture_frames must be a positive integer")
 
-    suffix = Path(getattr(file_obj, "name", "video.mp4")).suffix or ".mp4"
+    suffix_source = filename if filename else getattr(file_obj, "name", "video.mp4")
+    suffix = Path(suffix_source).suffix.lower() or ".mp4"
+    if suffix not in _ALLOWED_VIDEO_SUFFIXES:
+        raise FaceNotFoundError(
+            "Formato de video no soportado. Subí un archivo MP4 o WebM."
+        )
     with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp_video:
         file_obj.seek(0)
         shutil.copyfileobj(file_obj, tmp_video)

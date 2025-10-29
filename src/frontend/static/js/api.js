@@ -10,6 +10,10 @@ if (!window.API) {
     }).then(r => r.json()),
     eliminarSocio: (dni) => fetch(`${base}/socios/${dni}`, { method: 'DELETE' }).then(r => r.json()),
     rostroDesdeVideo: async (dni, file) => {
+      const allowedTypes = ['video/mp4', 'video/webm'];
+      if (file && file.type && !allowedTypes.includes(file.type)) {
+        throw new Error('Formato de video no soportado. Subí un archivo MP4 o WebM.');
+      }
       const form = new FormData();
       form.append('video', file);
       const res = await fetch(`${base}/socios/${dni}/rostro-video`, {
