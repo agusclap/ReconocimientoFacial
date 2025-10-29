@@ -133,6 +133,11 @@
           await api.altaSocio(payload);
           let message = 'Socio creado con éxito';
           if (videoFile) {
+            if (typeof api.rostroDesdeVideo !== 'function') {
+              console.error('API.rostroDesdeVideo no está disponible en la instancia actual.', api);
+              alert('El socio se creó, pero no se pudo inicializar la carga del video. Actualizá la página e intentá nuevamente.');
+              return;
+            }
             try {
               await api.rostroDesdeVideo(dniValue, videoFile);
               message = 'Socio creado y embedding generado con éxito';
@@ -145,7 +150,7 @@
           alert(message);
           window.location.href = '/';
         } catch (err) {
-          alert('Error al crear socio');
+          alert(err && err.message ? err.message : 'Error al crear socio');
           console.error(err);
         }
       });
