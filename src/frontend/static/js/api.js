@@ -1,4 +1,4 @@
-(() => {
+if (typeof window !== 'undefined' && (typeof window.API !== 'function')) {
   const resolveBase = (explicitBase) => {
     if (explicitBase) {
       return explicitBase;
@@ -40,7 +40,7 @@
   const buildApi = (base = undefined) => {
     const resolvedBase = resolveBase(base);
 
-    return {
+    const api = {
       planes: () => fetchJson(`${resolvedBase}/planes`, undefined, 'No se pudieron obtener los planes.'),
       logs: () => fetchJson(`${resolvedBase}/logs`, undefined, 'No se pudieron obtener los logs.'),
       socios: (q = '') => {
@@ -61,30 +61,37 @@
         { method: 'DELETE' },
         'No se pudo eliminar al socio.'
       ),
-      rostroDesdeVideo: async (dni, file) => {
-        if (typeof FormData === 'undefined') {
-          throw new Error('El navegador no soporta carga de videos para embeddings.');
-        }
-
-        const allowedTypes = ['video/mp4', 'video/webm'];
-        if (file && file.type && !allowedTypes.includes(file.type)) {
-          throw new Error('Formato de video no soportado. Subí un archivo MP4 o WebM.');
-        }
-
-        const form = new FormData();
-        form.append('video', file);
-
-        return fetchJson(
-          `${resolvedBase}/socios/${dni}/rostro-video`,
-          {
-            method: 'POST',
-            body: form,
-          },
-          'No se pudo generar el embedding desde el video.'
-        );
-      },
     };
+
+    api.rostroDesdeVideo = async (dni, file) => {
+      if (typeof FormData === 'undefined') {
+        throw new Error('El navegador no soporta carga de videos para embeddings.');
+      }
+
+      const allowedTypes = ['video/mp4', 'video/webm'];
+      if (file && file.type && !allowedTypes.includes(file.type)) {
+        throw new Error('Formato de video no soportado. Subí un archivo MP4 o WebM.');
+      }
+
+      const form = new FormData();
+      form.append('video', file);
+
+      return fetchJson(
+        `${resolvedBase}/socios/${dni}/rostro-video`,
+        {
+          method: 'POST',
+          body: form,
+        },
+        'No se pudo generar el embedding desde el video.'
+      );
+    };
+
+    return api;
   };
 
   window.API = buildApi;
-})();
+}
+
+if (typeof window === 'object' && typeof window.API === 'function' && typeof window.API.rostroDesdeVideo !== 'function') {
+  window.API.rostroDesdeVideo = (dni, file, base) => window.API(base).rostroDesdeVideo(dni, file);
+}
