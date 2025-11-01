@@ -1,0 +1,39 @@
+Visión general del pipeline
+El proyecto está centrado en tres piezas principales: el detector de liveness basado en YOLO, que valida que haya una única persona real frente a la cámara y descarta celulares u otros dispositivos sospechosos; el extractor de embeddings con InsightFace, que obtiene el vector facial del rostro más fiable en el cuadro; y el flujo de inscripción por consola, que toma varias capturas validadas y las almacena en un archivo JSON para futuros reconocimientos.
+
+Preparación del entorno
+Crea y activa un entorno virtual de Python 3.10+.
+
+Instala las dependencias con pip install -r requirements.txt.
+
+Asegúrate de que el sistema tenga las bibliotecas nativas requeridas por OpenCV (por ejemplo, libGL) y que haya acceso a una cámara si vas a usar la opción en vivo.
+
+Ultralytics descargará el peso yolov8n.pt la primera vez que se ejecute el detector, y InsightFace descargará los modelos buffalo_l; es recomendable ejecutar el pipeline con conexión a internet al menos una vez.
+
+Comandos disponibles
+El punto de entrada CLI está en src/main.py. Puedes listar los subcomandos con:
+
+python -m src.main --help
+Esto revela dos modos: pipeline y enroll.
+
+1. Ejecutar el pipeline en vivo
+Para lanzar la cámara predeterminada, validar liveness y extraer embeddings en tiempo real:
+
+python -m src.main pipeline --video-source 0 --show-window
+--video-source acepta un índice de cámara (0, 1, …) o la ruta a un archivo de vídeo.
+
+--show-window abre una ventana de OpenCV; pulsa q para salir.
+Mientras se ejecuta, el liveness detector imprime la razón si falla (persona ausente, múltiples personas o presencia de dispositivos) y, cuando todo es válido, el módulo de embeddings reporta la longitud del vector y el score de detección.
+
+2. Inscribir un nuevo socio
+Para capturar varias muestras validadas y guardarlas en data/enrollments.json:
+
+python -m src.main enroll --storage data/enrollments.json --camera-index 0 --samples 3
+El flujo pedirá DNI y nombre, repetirá la captura hasta reunir el número de muestras indicado (cancelas con q) y persistirá cada embedding junto a un timestamp en el JSON de almacenamiento.
+
+Dónde queda la información
+Las muestras registradas se serializan como listas de floats dentro de data/enrollments.json, junto con el DNI y el nombre del socio.
+
+Si necesitas reutilizar los embeddings en otro servicio, basta con leer ese archivo y reconstruir los vectores desde las listas almacenadas.
+
+Con estos comandos deberías poder probar tanto el pipeline en tiempo real como el proceso de inscripción y verificar que cada módulo del proyecto está funcionando de forma coordinada.
