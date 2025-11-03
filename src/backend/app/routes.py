@@ -6,6 +6,7 @@ from typing import Optional
 
 from fastapi import APIRouter, FastAPI, File, HTTPException, UploadFile
 from fastapi.responses import FileResponse
+from starlette.staticfiles import StaticFiles  # <- importa StaticFiles
 
 from .database import db
 from .schemas import AccesoIn, SocioIn
@@ -23,8 +24,15 @@ def register_routes(app: FastAPI, frontend_root: Path) -> None:
         if not template.exists():
             raise RuntimeError(f"Frontend template not found: {template}")
 
+    # --- Montar /static para servir JS/CSS/imagenes ---
+    static_dir = frontend_root / "static"
+    if not static_dir.exists():
+        raise RuntimeError(f"Static dir not found: {static_dir}")
+    app.mount("/static", StaticFiles(directory=static_dir), name="static")
+
     router = APIRouter()
 
+    # --- Páginas ---
     @router.get("/", response_class=FileResponse)
     def serve_frontend() -> FileResponse:
         return FileResponse(index_html)
@@ -37,20 +45,61 @@ def register_routes(app: FastAPI, frontend_root: Path) -> None:
     def serve_eliminar() -> FileResponse:
         return FileResponse(eliminar_html)
 
+    # --- APIs ---
     @router.get("/planes")
     def get_planes():
         return db().query("SELECT id_plan, nombre FROM planes ORDER BY id_plan")
 
     @router.get("/logs")
     def get_logs():
-        sql = (
-            "SELECT a.id, a.dni_cliente as dni, s.nombre, s.apellido, a.estado, a.fecha_hora, "
-            "(SELECT nombre FROM planes p WHERE p.id_plan = (SELECT id_plan FROM membresias m "
-            "WHERE m.dni_cliente=a.dni_cliente ORDER BY m.id_membresia DESC LIMIT 1)) as plan "
-            "FROM accesos a LEFT JOIN socios s ON s.dni_cliente = a.dni_cliente "
-            "ORDER BY a.fecha_hora DESC LIMIT 100"
-        )
-        return db().query(sql)
+        SQL = """
+            SELECT
+              a.id,
+              a.dni_cliente AS dni,
+              s.nombre,
+              s.apellido,
+              COALESCE(
+                (
+                  SELECT p.nombre
+                  FROM membresias m
+                  JOIN planes p ON p.id_plan = m.id_plan
+                  WHERE m.dni_cliente = a.dni_cliente
+                  ORDER BY
+                    CASE
+                      WHEN (COALESCE(m.fecha_fin, CURRENT_DATE) >= CURRENT_DATE AND m.estado = 'ACTIVA')
+                      THEN 0 ELSE 1
+                    END,
+                    m.fecha_inicio DESC
+                  LIMIT 1
+                ),
+                '—'
+              ) AS plan,
+              UPPER(a.estado) AS estado,
+              a.fecha AS fecha_hora
+            FROM accesos a
+            LEFT JOIN socios s ON s.dni_cliente = a.dni_cliente
+            ORDER BY a.fecha DESC
+            LIMIT 100
+        """
+        rows = db().query(SQL)
+
+        # Si db().query devuelve tuplas, mapear a diccionarios:
+        if rows and not isinstance(rows[0], dict):
+            mapped = []
+            for (id_, dni, nombre, apellido, plan, estado, fecha) in rows:
+                mapped.append({
+                    "id": id_,
+                    "dni": dni,
+                    "nombre": nombre,
+                    "apellido": apellido,
+                    "plan": plan,
+                    "estado": estado,
+                    "fecha_hora": fecha.isoformat() if fecha else None,
+                })
+            return mapped
+
+        # Si ya son dicts (RealDictCursor), devolver directo:
+        return rows
 
     @router.post("/logs/acceso")
     def post_acceso(payload: AccesoIn):
@@ -72,13 +121,21 @@ def register_routes(app: FastAPI, frontend_root: Path) -> None:
         if q:
             like = f"%{q}%"
             return db().query(
-                "SELECT dni_cliente as dni, nombre, apellido FROM socios WHERE CAST(dni_cliente AS TEXT) "
-                "ILIKE %s OR nombre ILIKE %s OR apellido ILIKE %s ORDER BY apellido, nombre LIMIT 50",
+                "SELECT dni_cliente AS dni, nombre, apellido "
+                "FROM socios "
+                "WHERE CAST(dni_cliente AS TEXT) ILIKE %s "
+                "   OR nombre ILIKE %s "
+                "   OR apellido ILIKE %s "
+                "ORDER BY apellido, nombre "
+                "LIMIT 50",
                 [like, like, like],
             )
 
         return db().query(
-            "SELECT dni_cliente as dni, nombre, apellido FROM socios ORDER BY apellido, nombre LIMIT 50"
+            "SELECT dni_cliente AS dni, nombre, apellido "
+            "FROM socios "
+            "ORDER BY apellido, nombre "
+            "LIMIT 50"
         )
 
     @router.post("/socios")
@@ -122,7 +179,7 @@ def register_routes(app: FastAPI, frontend_root: Path) -> None:
             embedding = embedding_from_video(
                 video.file, capture_frames=15, filename=video.filename
             )
-        except FaceNotFoundError as exc:  # pragma: no cover - simple mapping to HTTP error
+        except FaceNotFoundError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
 
         db().execute("DELETE FROM rostros WHERE dni_cliente=%s", [dni])

@@ -37,3 +37,14 @@ Las muestras registradas se serializan como listas de floats dentro de data/enro
 Si necesitas reutilizar los embeddings en otro servicio, basta con leer ese archivo y reconstruir los vectores desde las listas almacenadas.
 
 Con estos comandos deberías poder probar tanto el pipeline en tiempo real como el proceso de inscripción y verificar que cada módulo del proyecto está funcionando de forma coordinada.
+
+
+export DB_NAME=proyectogpi1
+export DB_USER=admin
+export DB_PASSWORD=nariga
+export DB_HOST=localhost
+export DB_PORT=15432
+
+
+1- PYTHONPATH=src uvicorn backend.main:app --reload
+2- python -m src.detection.face_recognition_service

@@ -1,11 +1,13 @@
+from typing import Mapping
 import cv2
+from matplotlib.pylab import Any
 import numpy as np
 import insightface
 from insightface.app import FaceAnalysis
 import psycopg2
 
 # --- CONFIGURACIÓN ---
-DB_CONFIG = {
+DB_CONFIG: Mapping[str, Any] = {
     "dbname": "proyectogpi1",
     "user": "admin",
     "password": "nariga",

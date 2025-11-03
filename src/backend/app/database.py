@@ -32,9 +32,9 @@ class Database:
                 host=DB_HOST,
                 port=DB_PORT,
             )
+            self._conn.autocommit = True
             register_vector(self._conn)
             register_default_jsonb(self._conn)
-            self._conn.autocommit = True
         return self._conn
 
     def query(self, sql: str, params: Optional[Sequence[object]] = None):
