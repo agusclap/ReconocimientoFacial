@@ -50,38 +50,58 @@ def register_routes(app: FastAPI, frontend_root: Path) -> None:
     def get_planes():
         return db().query("SELECT id_plan, nombre FROM planes ORDER BY id_plan")
 
+
+
+    @router.post("/membresias/renovar")
+    def renovar_membresia(dni: int, dias: int = 30):
+    # cerrar membresías viejas
+        db().execute(
+        "UPDATE membresias SET estado='VENCIDA' WHERE dni_cliente=%s AND (fecha_fin < CURRENT_DATE OR estado <> 'ACTIVA')",
+        [dni],
+        )
+    # crear nueva
+        db().execute(
+        "INSERT INTO membresias (dni_cliente, id_plan, fecha_inicio, fecha_fin, estado) "
+        "SELECT %s, id_plan, CURRENT_DATE, CURRENT_DATE + (%s || ' days')::interval, 'ACTIVA' "
+        "FROM membresias WHERE dni_cliente=%s ORDER BY id_membresia DESC LIMIT 1",
+        [dni, dias, dni],
+        )
+        return {"ok": True}
+
+
     @router.get("/logs")
     def get_logs():
-        SQL = """
-            SELECT
-              a.id,
-              a.dni_cliente AS dni,
-              s.nombre,
-              s.apellido,
-              COALESCE(
-                (
-                  SELECT p.nombre
-                  FROM membresias m
-                  JOIN planes p ON p.id_plan = m.id_plan
-                  WHERE m.dni_cliente = a.dni_cliente
-                  ORDER BY
-                    CASE
-                      WHEN (COALESCE(m.fecha_fin, CURRENT_DATE) >= CURRENT_DATE AND m.estado = 'ACTIVA')
-                      THEN 0 ELSE 1
-                    END,
-                    m.fecha_inicio DESC
-                  LIMIT 1
-                ),
-                '—'
-              ) AS plan,
-              UPPER(a.estado) AS estado,
-              a.fecha AS fecha_hora
-            FROM accesos a
-            LEFT JOIN socios s ON s.dni_cliente = a.dni_cliente
-            ORDER BY a.fecha DESC
-            LIMIT 100
-        """
-        rows = db().query(SQL)
+        sql = """
+        SELECT
+          a.id,
+          a.dni_cliente AS dni,
+          s.nombre,
+          s.apellido,
+          COALESCE(
+            (
+              SELECT p.nombre
+              FROM membresias m
+              JOIN planes p ON p.id_plan = m.id_plan
+              WHERE m.dni_cliente = a.dni_cliente
+              ORDER BY
+                CASE
+                  WHEN (COALESCE(m.fecha_fin, CURRENT_DATE) >= CURRENT_DATE AND m.estado = 'ACTIVA')
+                  THEN 0 ELSE 1
+                END,
+                m.fecha_inicio DESC
+              LIMIT 1
+            ),
+            '—'
+          ) AS plan,
+          UPPER(a.estado) AS estado,
+          a.motivo,
+          a.fecha AS fecha_hora
+        FROM accesos a
+        LEFT JOIN socios s ON s.dni_cliente = a.dni_cliente
+        ORDER BY a.fecha DESC
+        LIMIT 100
+    """
+        rows = db().query(sql)
 
         # Si db().query devuelve tuplas, mapear a diccionarios:
         if rows and not isinstance(rows[0], dict):
@@ -103,18 +123,48 @@ def register_routes(app: FastAPI, frontend_root: Path) -> None:
 
     @router.post("/logs/acceso")
     def post_acceso(payload: AccesoIn):
+        # 1) existe el socio?
         socio = db().query(
             "SELECT dni_cliente FROM socios WHERE dni_cliente=%s",
             [payload.dni],
         )
         if not socio:
+        # también lo podés loguear como denegado si querés
+            db().execute(
+                "INSERT INTO accesos (dni_cliente, estado, motivo) VALUES (%s, %s, %s)",
+                [payload.dni, "DENEGADO", "socio no encontrado"],
+            )
             raise HTTPException(status_code=404, detail="Socio no encontrado")
 
+        # 2) tiene una membresía vigente?
+        vigente = db().query(
+            """
+            SELECT 1
+            FROM membresias
+            WHERE dni_cliente = %s
+              AND estado = 'ACTIVA'
+              AND (fecha_fin IS NULL OR fecha_fin >= CURRENT_DATE)
+            ORDER BY fecha_inicio DESC
+            LIMIT 1
+            """,
+            [payload.dni],
+        )
+
+        if not vigente:
+        # 3) NO vigente -> registrar acceso denegado
+            db().execute(
+                "INSERT INTO accesos (dni_cliente, estado, motivo) VALUES (%s, %s, %s)",
+                [payload.dni, "DENEGADO", "membresia vencida o impaga"],
+            )
+            return {"ok": False, "detail": "Membresía vencida o impaga"}
+
+        # 4) SÍ vigente -> registrar como vino del servicio (normalmente PERMITIDO)
         db().execute(
             "INSERT INTO accesos (dni_cliente, estado) VALUES (%s, %s)",
-            [payload.dni, payload.estado],
+            [payload.dni, payload.estado.upper()],
         )
         return {"ok": True}
+
 
     @router.get("/socios")
     def list_socios(q: Optional[str] = None):

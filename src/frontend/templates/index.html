@@ -6,7 +6,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Panel de Recepción — Logs</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <script defer src="/static/js/api.js"></script>
 </head>
 
 <body class="bg-slate-900 text-slate-100 min-h-screen">
@@ -24,70 +23,64 @@
     <div id="logs" class="space-y-3"></div>
   </main>
 
-  <!-- CARGA LA API PRIMERO, SIN defer -->
+  <!-- CARGÁ LA API UNA SOLA VEZ (sin defer) -->
   <script src="/static/js/api.js"></script>
-
   <script>
-    window.addEventListener('DOMContentLoaded', () => {
-      // 1) Verificar que api.js realmente cargó
-      if (typeof window.API !== 'function') {
-        const cont = document.getElementById('logs');
-        cont.innerHTML = '<div class="text-rose-400 text-sm">No se pudo cargar /static/js/api.js (API no definida).</div>';
-        console.error('API() no está definida. ¿/static está montado? ¿api.js existe en /static/js/api.js?');
-        return;
-      }
+    function estadoClass(e) {
+      if (e === 'PERMITIDO') return 'text-emerald-400';
+      if (e === 'DENEGADO') return 'text-rose-400';
+      return 'text-slate-300';
+    }
+    function estadoLabel(row) {
+      if (row.estado === 'PERMITIDO') return '✔ Ingreso permitido';
+      if (row.estado === 'DENEGADO') return row.motivo ? `✖ ${row.motivo}` : '✖ Ingreso denegado';
+      return row.estado || '—';
+    }
 
-      const api = window.API(); // 2) Instanciar API del helper
-
-      function estadoClass(estado) {
-        if (estado === 'PERMITIDO') return 'text-emerald-400';
-        if (estado === 'DENEGADO') return 'text-rose-400';
-        return 'text-slate-300';
-      }
-      function estadoLabel(estado) {
-        if (estado === 'PERMITIDO') return '✔ Ingreso permitido';
-        if (estado === 'DENEGADO') return '✖ Ingreso denegado';
-        return estado || '—';
-      }
-
-      async function loadLogs() {
-        const cont = document.getElementById('logs');
-        cont.innerHTML = '<div class="text-slate-400 text-sm">Cargando…</div>';
-        try {
-          const data = await api.logs(); // 3) ACÁ debe generarse un GET /logs (miralo en Network)
-          cont.innerHTML = '';
-          if (!data.length) {
-            cont.innerHTML = '<div class="text-slate-400 text-sm">Sin registros aún.</div>';
-            return;
-          }
-          data.forEach(row => {
-            const fecha = row.fecha_hora ? new Date(row.fecha_hora) : null;
-            const hora = fecha ? fecha.toLocaleTimeString('es-AR') : '—';
-            const card = document.createElement('div');
-            card.className = 'bg-slate-800/60 border border-slate-700 rounded-xl p-4 flex items-center justify-between';
-            card.innerHTML = `
-              <div>
-                <div class="font-medium">${row.nombre ? `${row.nombre} ${row.apellido}` : 'Nuevo Usuario'}</div>
-                <div class="text-sm text-slate-300">Plan: ${row.plan || '—'}</div>
-              </div>
-              <div class="text-right">
-                <div class="${estadoClass(row.estado)} text-sm">${estadoLabel(row.estado)}</div>
-                <div class="text-xs text-slate-400">DNI ${row.dni || '—'} • ${hora}</div>
-              </div>`;
-            cont.appendChild(card);
-          });
-        } catch (e) {
-          console.error('Error en loadLogs()', e);
-          cont.innerHTML = `<div class="text-rose-400 text-sm">Error cargando logs: ${e.message}</div>`;
+    async function loadLogs() {
+      const cont = document.getElementById('logs');
+      try {
+        if (typeof window.API !== 'function') {
+          cont.innerHTML = '<div class="text-rose-400 text-sm">No se pudo cargar /static/js/api.js (API no definida).</div>';
+          console.error('API() no está definida. ¿/static está montado? ¿/static/js/api.js existe?');
+          return;
         }
+        const api = window.API();
+        const data = await api.logs(); // GET /logs
+        cont.innerHTML = '';
+        if (!data || !data.length) {
+          cont.innerHTML = '<div class="text-slate-400 text-sm">Sin registros aún.</div>';
+          return;
+        }
+        data.forEach(row => {
+          const fecha = row.fecha_hora ? new Date(row.fecha_hora) : null;
+          const hora = fecha ? fecha.toLocaleTimeString('es-AR') : '—';
+          const card = document.createElement('div');
+          card.className = 'bg-slate-800/60 border border-slate-700 rounded-xl p-4 flex items-center justify-between';
+          card.innerHTML = `
+            <div>
+              <div class="font-medium">${row.nombre ? `${row.nombre} ${row.apellido}` : 'Nuevo Usuario'}</div>
+              <div class="text-sm text-slate-300">Plan: ${row.plan || '—'}</div>
+            </div>
+            <div class="text-right">
+              <div class="${estadoClass(row.estado)} text-sm">${estadoLabel(row)}</div>
+              <div class="text-xs text-slate-400">DNI ${row.dni || '—'} • ${hora}</div>
+            </div>`;
+          cont.appendChild(card);
+        });
+      } catch (e) {
+        console.error('Error en loadLogs()', e);
+        document.getElementById('logs').innerHTML =
+          `<div class="text-rose-400 text-sm">Error cargando logs: ${e.message}</div>`;
       }
+    }
 
+    // Primera carga + refresco cada 5s
+    window.addEventListener('DOMContentLoaded', () => {
       loadLogs();
       setInterval(loadLogs, 5000);
     });
   </script>
-
-
 </body>
 
 </html>
