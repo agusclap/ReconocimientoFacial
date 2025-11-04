@@ -165,16 +165,27 @@ def register_routes(app: FastAPI, frontend_root: Path) -> None:
     def list_socios(q: Optional[str] = None):
         if q:
             like = f"%{q}%"
-            return db().query(
+            params = [like, like, like]
+            where_clauses = [
+                "CAST(dni_cliente AS TEXT) ILIKE %s",
+                "nombre ILIKE %s",
+                "apellido ILIKE %s",
+            ]
+
+            digits = "".join(ch for ch in q if ch.isdigit())
+            if digits:
+                params.append(f"%{digits}%")
+                where_clauses.append("CAST(dni_cliente AS TEXT) LIKE %s")
+
+            sql = (
                 "SELECT dni_cliente AS dni, nombre, apellido "
                 "FROM socios "
-                "WHERE CAST(dni_cliente AS TEXT) ILIKE %s "
-                "   OR nombre ILIKE %s "
-                "   OR apellido ILIKE %s "
+                "WHERE " + " OR ".join(where_clauses) + " "
                 "ORDER BY apellido, nombre "
-                "LIMIT 50",
-                [like, like, like],
+                "LIMIT 50"
             )
+
+            return db().query(sql, params)
 
         return db().query(
             "SELECT dni_cliente AS dni, nombre, apellido "
