@@ -18,9 +18,9 @@ def register_routes(app: FastAPI, frontend_root: Path) -> None:
     templates_dir = frontend_root / "templates"
     index_html = templates_dir / "index.html"
     registro_html = templates_dir / "registro.html"
-    eliminar_html = templates_dir / "eliminar.html"
+    renovar_html = templates_dir / "renovar.html"
 
-    for template in (index_html, registro_html, eliminar_html):
+    for template in (index_html, registro_html, renovar_html):
         if not template.exists():
             raise RuntimeError(f"Frontend template not found: {template}")
 
@@ -32,7 +32,7 @@ def register_routes(app: FastAPI, frontend_root: Path) -> None:
 
     router = APIRouter()
 
-    # --- Páginas ---
+       # --- Páginas ---
     @router.get("/", response_class=FileResponse)
     def serve_frontend() -> FileResponse:
         return FileResponse(index_html)
@@ -41,31 +41,33 @@ def register_routes(app: FastAPI, frontend_root: Path) -> None:
     def serve_registro() -> FileResponse:
         return FileResponse(registro_html)
 
-    @router.get("/eliminar", response_class=FileResponse)
-    def serve_eliminar() -> FileResponse:
-        return FileResponse(eliminar_html)
+    @router.get("/renovar", response_class=FileResponse)
+    def serve_renovar() -> FileResponse:
+        return FileResponse(renovar_html)
 
     # --- APIs ---
+
     @router.get("/planes")
     def get_planes():
         return db().query("SELECT id_plan, nombre FROM planes ORDER BY id_plan")
 
-
-
     @router.post("/membresias/renovar")
-    def renovar_membresia(dni: int, dias: int = 30):
-    # cerrar membresías viejas
+    def renovar_membresia(dni: int, id_plan: int, dias: int = 30):
+        # cerrar membresías viejas
         db().execute(
-        "UPDATE membresias SET estado='VENCIDA' WHERE dni_cliente=%s AND (fecha_fin < CURRENT_DATE OR estado <> 'ACTIVA')",
-        [dni],
+            "UPDATE membresias SET estado='VENCIDA' WHERE dni_cliente=%s",
+            [dni],
         )
-    # crear nueva
+
+        # crear nueva con el plan elegido
         db().execute(
-        "INSERT INTO membresias (dni_cliente, id_plan, fecha_inicio, fecha_fin, estado) "
-        "SELECT %s, id_plan, CURRENT_DATE, CURRENT_DATE + (%s || ' days')::interval, 'ACTIVA' "
-        "FROM membresias WHERE dni_cliente=%s ORDER BY id_membresia DESC LIMIT 1",
-        [dni, dias, dni],
+            """
+            INSERT INTO membresias (dni_cliente, id_plan, fecha_inicio, fecha_fin, estado)
+            VALUES (%s, %s, CURRENT_DATE, CURRENT_DATE + (%s || ' days')::interval, 'ACTIVA')
+            """,
+            [dni, id_plan, dias],
         )
+
         return {"ok": True}
 
 
@@ -100,7 +102,7 @@ def register_routes(app: FastAPI, frontend_root: Path) -> None:
         LEFT JOIN socios s ON s.dni_cliente = a.dni_cliente
         ORDER BY a.fecha DESC
         LIMIT 100
-    """
+        """
         rows = db().query(sql)
 
         # Si db().query devuelve tuplas, mapear a diccionarios:
@@ -118,25 +120,21 @@ def register_routes(app: FastAPI, frontend_root: Path) -> None:
                 })
             return mapped
 
-        # Si ya son dicts (RealDictCursor), devolver directo:
         return rows
 
     @router.post("/logs/acceso")
     def post_acceso(payload: AccesoIn):
-        # 1) existe el socio?
         socio = db().query(
             "SELECT dni_cliente FROM socios WHERE dni_cliente=%s",
             [payload.dni],
         )
         if not socio:
-        # también lo podés loguear como denegado si querés
             db().execute(
                 "INSERT INTO accesos (dni_cliente, estado, motivo) VALUES (%s, %s, %s)",
                 [payload.dni, "DENEGADO", "socio no encontrado"],
             )
             raise HTTPException(status_code=404, detail="Socio no encontrado")
 
-        # 2) tiene una membresía vigente?
         vigente = db().query(
             """
             SELECT 1
@@ -151,20 +149,17 @@ def register_routes(app: FastAPI, frontend_root: Path) -> None:
         )
 
         if not vigente:
-        # 3) NO vigente -> registrar acceso denegado
             db().execute(
                 "INSERT INTO accesos (dni_cliente, estado, motivo) VALUES (%s, %s, %s)",
                 [payload.dni, "DENEGADO", "membresia vencida o impaga"],
             )
             return {"ok": False, "detail": "Membresía vencida o impaga"}
 
-        # 4) SÍ vigente -> registrar como vino del servicio (normalmente PERMITIDO)
         db().execute(
             "INSERT INTO accesos (dni_cliente, estado) VALUES (%s, %s)",
             [payload.dni, payload.estado.upper()],
         )
         return {"ok": True}
-
 
     @router.get("/socios")
     def list_socios(q: Optional[str] = None):

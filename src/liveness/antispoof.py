@@ -46,7 +46,7 @@ class LivenessDetector:
     _MODEL_LOCK = threading.Lock()
     _MODEL: YOLO | None = None
 
-    def __init__(self, model_path: str | Path = "yolov8n.pt",
+    def __init__(self, model_path: str | Path = "yolov11m.pt",
                  conf: float = 0.20, imgsz: int = 960,
                  containment_thresh: float = 0.50) -> None:
         self.model_path = str(model_path)

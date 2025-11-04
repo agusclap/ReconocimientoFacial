@@ -56,12 +56,14 @@ if (typeof window !== 'undefined' && (typeof window.API !== 'function')) {
         },
         'No se pudo dar de alta al socio.'
       ),
-      eliminarSocio: (dni) => fetchJson(
-        `${resolvedBase}/socios/${dni}`,
-        { method: 'DELETE' },
-        'No se pudo eliminar al socio.'
-      ),
+      renovarMembresia: (dni, id_plan, dias = 30) => fetchJson(
+        `${resolvedBase}/membresias/renovar?dni=${dni}&id_plan=${id_plan}&dias=${dias}`,
+        { method: 'POST' },
+        'No se pudo renovar la membresía.'
+),
+
     };
+    
 
     api.rostroDesdeVideo = async (dni, file) => {
       if (typeof FormData === 'undefined') {

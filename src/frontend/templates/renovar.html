@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Renovar Membresía</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script defer src="/static/js/api.js"></script>
+</head>
+
+<body class="bg-slate-900 text-slate-100 min-h-screen">
+  <header class="p-4 border-b border-slate-800 flex items-center justify-between">
+    <h1 class="text-xl font-semibold">🦾 Panel de Recepción</h1>
+    <nav class="space-x-3 text-sm">
+      <a href="/" class="hover:underline">Logs</a>
+      <a href="/registro" class="hover:underline">Registrar Usuario</a>
+      <a href="/renovar" class="underline">Renovar Membresía</a>
+    </nav>
+  </header>
+
+  <main class="max-w-3xl mx-auto p-6">
+    <h2 class="text-lg font-semibold mb-4">Renovar Membresía</h2>
+
+    <input id="q" 
+      class="w-full mb-4 px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg" 
+      placeholder="Buscar por DNI o nombre..." />
+
+    <div id="lista" class="space-y-3 text-sm"></div>
+  </main>
+
+  <script>
+    const api = API();
+    let PLANES = [];
+
+    async function cargarPlanes() {
+      PLANES = await api.planes();
+    }
+
+    function selectorPlanes() {
+      return `
+        <select class="px-2 py-1 bg-slate-900 border border-slate-700 rounded-lg">
+          ${PLANES.map(p => `<option value="${p.id_plan}">${p.nombre}</option>`).join('')}
+        </select>
+      `;
+    }
+
+    async function buscar() {
+      const q = document.getElementById('q').value.trim();
+      const socios = await api.socios(q);
+      const cont = document.getElementById('lista');
+      cont.innerHTML = '';
+
+      socios.forEach(s => {
+        const div = document.createElement('div');
+        div.className = "bg-slate-800/60 border border-slate-700 rounded-xl p-4 flex justify-between items-center";
+
+        div.innerHTML = `
+          <div>
+            <div class="font-medium">${s.apellido}, ${s.nombre}</div>
+            <div class="text-slate-300">DNI: ${s.dni}</div>
+          </div>
+
+          <div class="flex gap-3 items-center">
+            ${selectorPlanes()}
+            <button class="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500">
+              Renovar
+            </button>
+          </div>
+        `;
+
+        const select = div.querySelector("select");
+        const boton = div.querySelector("button");
+
+        boton.onclick = async () => {
+          const id_plan = select.value;
+
+          if (confirm(`¿Renovar membresía de ${s.nombre} ${s.apellido}?`)) {
+            await api.renovarMembresia(s.dni, id_plan, 30);
+            alert("✅ Membresía renovada correctamente");
+          }
+        };
+
+        cont.appendChild(div);
+      });
+    }
+
+    document.getElementById('q').addEventListener('input', buscar);
+
+    (async () => {
+      await cargarPlanes();
+      buscar();
+    })();
+  </script>
+</body>
+</html>
