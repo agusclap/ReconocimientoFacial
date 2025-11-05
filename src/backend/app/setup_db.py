@@ -48,6 +48,8 @@ CREATE TABLE IF NOT EXISTS accesos (
 
 CREATE INDEX IF NOT EXISTS idx_accesos_fecha ON accesos(fecha DESC);
 CREATE INDEX IF NOT EXISTS idx_accesos_dni   ON accesos(dni_cliente);
+ALTER TABLE accesos
+ADD COLUMN IF NOT EXISTS motivo TEXT;
 """
 
 SEED_PLANES = """
